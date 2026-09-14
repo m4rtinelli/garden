@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inkwash Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  [hidden] { display: none !important; }
+  img { max-width: 100%; }
+  :root {
+    --silk: #e9e2d3;
+    --silk-2: #ddd4c2;
+    --ink: #262631;
+    --ink-2: #4d4d5c;
+    --ink-3: #8a8798;
+    --seal: #b8455a;
+    --wash: #6f7286;
+    --panel: rgba(233, 226, 211, 0.86);
+    --panel-line: rgba(38, 38, 49, 0.18);
+    --font-display: "Shippori Mincho", "Noto Serif JP", Georgia, serif;
+    --font-ui: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--silk);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    overflow: hidden;
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+
+  .hud {
+    position: fixed; inset: 0; pointer-events: none;
+    padding: 20px; box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .hud > * { pointer-events: auto; }
+
+  .masthead { display: flex; align-items: flex-start; gap: 14px; max-width: 360px; }
+  .seal {
+    width: 34px; height: 34px; flex: none; border-radius: 3px;
+    background: var(--seal); color: var(--silk);
+    font-family: var(--font-display); font-weight: 600; font-size: 20px; line-height: 34px;
+    text-align: center; box-shadow: 0 0 0 1px rgba(184, 69, 90, 0.35) inset;
+    transform: rotate(-4deg);
+  }
+  .masthead h1 {
+    margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1.1;
+    letter-spacing: 0.01em; text-wrap: balance;
+  }
+  .masthead p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); max-width: 32ch; }
+
+  .foot { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 12px; color: var(--ink-2); }
+  .foot .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px; border: 1px solid var(--panel-line); border-radius: 999px;
+    background: var(--panel); font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  }
+  .foot .badge b { font-weight: 600; color: var(--ink); }
+  .foot .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--wash); }
+  .foot .dot.gpu { background: #3f8f5f; }
+  .foot button {
+    font: 500 12px var(--font-ui); color: var(--ink); background: var(--panel);
+    border: 1px solid var(--panel-line); border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  }
+  .foot button:hover { background: var(--silk-2); }
+  .foot button:focus-visible, .lil-gui *:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+  .foot .hint { color: var(--ink-3); }
+
+  #enter { position: fixed; inset: 0; display: grid; place-items: center; z-index: 4; cursor: pointer; background: rgba(233, 226, 211, 0.35); }
+  #enter[hidden], #crosshair[hidden] { display: none !important; }
+  #enter .card {
+    max-width: 420px; margin: 16px; padding: 26px 28px; background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 8px; backdrop-filter: blur(8px); text-align: center;
+  }
+  #enter .k { font-family: var(--font-display); font-size: 30px; color: var(--seal); margin-bottom: 6px; }
+  #enter h2 { margin: 0 0 10px; font-family: var(--font-display); font-weight: 400; font-size: 24px; }
+  #enter p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+  #enter p.small { font-size: 12px; color: var(--ink-3); margin: 0; }
+  #enter b { color: var(--ink); font-weight: 600; }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--seal); box-shadow: 0 0 0 2px rgba(233,226,211,0.7); pointer-events: none; z-index: 3; }
+  #menuHint {
+    position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 3; pointer-events: none;
+    font-size: 12.5px; color: var(--ink-2); background: var(--panel); border: 1px solid var(--panel-line); padding: 6px 14px; border-radius: 999px;
+  }
+  #menuHint b { color: var(--ink); font-weight: 600; }
+  #menuHint[hidden] { display: none !important; }
+  body.hud-off .hud, body.recording .hud, body.recording .lil-gui, body.recording #menuHint, body.recording #enter { display: none !important; }
+  #btnHudShow {
+    position: fixed; right: 16px; bottom: 16px; width: 32px; height: 32px; border-radius: 50%; z-index: 3; cursor: pointer;
+    font: 600 14px var(--font-display); color: var(--ink); background: var(--panel); border: 1px solid var(--panel-line);
+  }
+  #btnHudShow[hidden], body.recording #btnHudShow { display: none !important; }
+  #recBadge {
+    position: fixed; left: 16px; top: 16px; z-index: 6; display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px var(--font-ui); letter-spacing: 0.04em; color: var(--silk); background: rgba(38,38,49,0.85); padding: 6px 12px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  #recBadge[hidden] { display: none !important; }
+  #recBadge .rdot { width: 9px; height: 9px; border-radius: 50%; background: #e63946; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { to { opacity: 0.25; } }
+  body.recording #stage canvas { object-fit: contain; background: var(--silk); }
+  #toast {
+    position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(6px); opacity: 0; transition: opacity .25s, transform .25s;
+    font-family: var(--font-display); font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--panel-line);
+    padding: 6px 14px; border-radius: 999px; pointer-events: none; z-index: 3;
+  }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  body.walking .masthead p { display: none; }
+  .foot .hint b { font-weight: 600; color: var(--ink); }
+  #loading {
+    position: fixed; inset: 0; display: grid; place-items: center; background: var(--silk);
+    font-family: var(--font-display); font-size: 18px; color: var(--ink-2); z-index: 5;
+    transition: opacity .6s ease;
+  }
+  #loading.gone { opacity: 0; pointer-events: none; }
+  #loading .err { max-width: 46ch; text-align: center; font-family: var(--font-ui); font-size: 13.5px; line-height: 1.5; padding: 0 20px; }
+
+  /* lil-gui theming: paper and ink */
+  .lil-gui {
+    --background-color: var(--panel);
+    --text-color: var(--ink);
+    --title-background-color: rgba(38, 38, 49, 0.06);
+    --title-text-color: var(--ink);
+    --widget-color: rgba(38, 38, 49, 0.08);
+    --hover-color: rgba(38, 38, 49, 0.14);
+    --focus-color: rgba(38, 38, 49, 0.2);
+    --number-color: var(--seal);
+    --string-color: var(--wash);
+    --font-family: var(--font-ui);
+    --font-size: 11.5px;
+    --input-font-size: 11.5px;
+    --name-width: 46%;
+    --slider-knob-width: 3px;
+    --width: 290px;
+    border: 1px solid var(--panel-line);
+    border-radius: 6px;
+    backdrop-filter: blur(6px);
+  }
+  .lil-gui.root { position: fixed; top: 16px; right: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .lil-gui.root > .title { font-family: var(--font-display); font-size: 13px; letter-spacing: 0.04em; }
+  .lil-gui .title { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; font-weight: 600; }
+  .lil-gui .controller.number input, .lil-gui .controller.string input { font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 640px) {
+    .hud { padding: 14px; }
+    .masthead h1 { font-size: 21px; }
+    .masthead p { display: none; }
+    .lil-gui.root { top: auto; bottom: 56px; right: 10px; --width: min(290px, calc(100vw - 20px)); max-height: 46vh; }
+  }
+  @media (prefers-reduced-motion: reduce) { #loading { transition: none; } }
+</style>
+</head>
+<body>
+
+
+<div id="stage"></div>
+<div id="loading"><div>preparing the silk…</div></div>
+
+<div id="enter" hidden>
+  <div class="card">
+    <div class="k">&#22290;</div>
+    <h2>Step into the garden</h2>
+    <p>Click to take the view. <b>W A S D</b> to walk, mouse to look, <b>Shift</b> to hurry.<br>Look at a flower and click to let its petals go. Look at the ground and press <b>F</b> to plant.</p>
+    <p class="small">Ctrl frees the cursor for the panel (Ctrl again or click to return) &middot; touch: left thumb walks, right thumb looks</p>
+  </div>
+</div>
+<div id="crosshair" hidden></div>
+<div id="menuHint" hidden>cursor free &middot; <b>Ctrl</b> or click the garden to keep walking</div>
+<div id="toast"></div>
+<button id="btnHudShow" type="button" hidden title="Show info (H)">i</button>
+<div id="recBadge" hidden><span class="rdot"></span> REC 1080p60 <b id="recTime">0:00</b></div>
+<div class="hud">
+  <header class="masthead">
+    <div class="seal" aria-hidden="true">&#22290;</div>
+    <div>
+      <h1>Inkwash Garden</h1>
+      <p>A procedural field you can walk through: woodblock-shaded flowers, ink-wash shadows, printed through silk. Brush past the stems, let a bloom go, plant a seed.</p>
+    </div>
+  </header>
+  <footer class="foot">
+    <span class="badge"><span class="dot" id="backendDot"></span><span id="backendName">starting</span></span>
+    <span class="badge">seed <b id="seedLabel">—</b></span>
+    <span class="badge"><b id="plantLabel">0</b> plants</span>
+    <button id="btnNew" type="button">New garden</button>
+    <button id="btnPause" type="button">Pause</button>
+    <button id="btnRec" type="button" title="Record MP4 1920x1080 (R)">&#9679; Record</button>
+    <button id="btnHud" type="button" title="Hide this bar (H)">Hide info</button>
+    <span class="hint"><b>WASD</b> walk &middot; <b>Shift</b> run &middot; <b>click / E</b> let a bloom go &middot; <b>F</b> plant &middot; <b>Ctrl</b> free cursor / panel &middot; <b>N</b> new garden &middot; <b>R</b> record &middot; <b>H</b> hide this</span>
+  </footer>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.webgpu.js",
+    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.webgpu.js",
+    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.tsl.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/",
+    "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.21.0/dist/lil-gui.esm.js"
+  }
+}
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
